@@ -1,0 +1,211 @@
+---
+title: "DATA 607 Week 5A – Airline Delays Approach"
+author: "Patricio Romero"
+date: "2026-10-01"
+format:
+  html:
+    toc: true
+    code-fold: false
+execute:
+  echo: true
+  warning: false
+  message: false
+editor: visual
+---
+
+## Introduction
+
+Airline performance can be evaluated by comparing the number and percentage of flights that arrive on time or experience delays. However, comparisons based only on flight counts may be misleading because airlines do not operate the same number of flights in every city.
+
+The objective of this assignment is to organize, tidy, and analyze flight-arrival data for Alaska Airlines and AM West across five destinations. The final analysis will compare the overall delay percentages of the two airlines and their delay percentages within each destination.
+
+PostgreSQL will store the original observations in their supplied wide format. R will retrieve the data, populate the intentionally missing airline names, transform the data from wide to long format, calculate percentages, and present the findings.
+
+## Data Source
+
+The data were provided in the course assignment *Tidying and Transforming Data*. The original table reports counts of on-time and delayed flights for two airlines across five destinations.
+
+The airlines are:
+
+- Alaska Airlines
+- AM West
+
+The destinations are:
+
+- Los Angeles
+- Phoenix
+- San Diego
+- San Francisco
+- Seattle
+
+“The recreated source dataset contains four rows representing on-time and delayed flights for the two airlines. As in the supplied source table, the airline name is intentionally blank in two rows.”
+
+## Data Dictionary
+
+| Variable | Description |
+|:---------|:------------|
+| `airline` | Name of the airline |
+| `status` | Flight-arrival category: on time or delayed |
+| `los_angeles` | Number of flights for Los Angeles |
+| `phoenix` | Number of flights for Phoenix |
+| `san_diego` | Number of flights for San Diego |
+| `san_francisco` | Number of flights for San Francisco |
+| `seattle` | Number of flights for Seattle |
+
+## Database Design
+
+The original data were saved as `airline_delays.csv` and imported into the PostgreSQL database `data607_week5a`.
+
+The records are stored in the table `airline_delays_raw`. This table contains a generated identifier named `record_id`, the airline and status variables, and one count column for each destination.
+
+The table preserves the two missing airline cells from the original source. These missing values will not be replaced in PostgreSQL because the assignment requires reproducible code to populate them during the R data-preparation process.
+
+## Planned Approach
+
+The analysis will follow these steps:
+
+1. Retrieve the original wide-format records from PostgreSQL.
+2. Confirm that the table contains four records and two intentionally missing airline values.
+3. Populate the missing airline names using the preceding valid airline name.
+4. Transform the five destination columns from wide format into long format.
+5. Create one row for each airline, flight status, and destination combination.
+6. Validate the transformed data, expected airlines, destinations, statuses, and flight counts.
+7. Calculate the total number of flights and delayed flights for each airline.
+8. Calculate the overall delay percentage for each airline.
+9. Calculate delay percentages for each airline within each of the five destinations.
+10. Present the comparisons in tables and charts.
+11. Describe the difference between the overall and city-level comparisons.
+12. Explain how different flight distributions across cities produce the discrepancy.
+13. Publish the reproducible report on RPubs and place the project files in a public GitHub repository.
+
+The delay percentage will be calculated as:
+
+$$
+\text{Delay Percentage} =
+\frac{\text{Delayed Flights}}
+{\text{On-Time Flights} + \text{Delayed Flights}}
+\times 100
+$$
+
+## Data Retrieval from PostgreSQL
+
+The required packages are loaded before connecting to PostgreSQL.
+
+```{r}
+library(DBI)
+library(RPostgres)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+```
+
+The database password is retrieved from the local `.Renviron` file and is not stored in this document or published on GitHub.
+
+```{r}
+con <- dbConnect(
+  RPostgres::Postgres(),
+  host = "127.0.0.1",
+  port = 55433,
+  dbname = "data607_week5a",
+  user = "postgres",
+  password = Sys.getenv("DATA607_DB_PASSWORD")
+)
+```
+
+The original wide-format records are retrieved directly from PostgreSQL. The missing airline values remain unchanged during this retrieval step.
+
+```{r}
+airline_delays_raw <- dbGetQuery(
+  con,
+  "
+  SELECT
+    record_id,
+    airline,
+    status,
+    los_angeles,
+    phoenix,
+    san_diego,
+    san_francisco,
+    seattle
+  FROM public.airline_delays_raw
+  ORDER BY record_id
+  "
+)
+
+knitr::kable(
+  airline_delays_raw,
+  col.names = c(
+    "Record ID",
+    "Airline",
+    "Status",
+    "Los Angeles",
+    "Phoenix",
+    "San Diego",
+    "San Francisco",
+    "Seattle"
+  ),
+  align = c("r", "l", "l", "r", "r", "r", "r", "r"),
+  caption = "Original wide-format airline-delay data"
+)
+```
+
+## Initial Database Validation
+
+Before beginning the transformation and analysis in R, the PostgreSQL table was inspected. The initial validation confirmed:
+
+- `4` total records
+- `2` populated airline cells
+- `2` intentionally missing airline cells
+- Complete numeric counts for all five destinations
+
+No missing airline values were filled and no delay percentages were calculated during this initial database-validation stage.
+
+```{r data-validation}
+validation_summary <- data.frame(
+  validation_check = c(
+    "Total records",
+    "Populated airline cells",
+    "Missing airline cells"
+  ),
+  result = c(
+    nrow(airline_delays_raw),
+    sum(!is.na(airline_delays_raw$airline)),
+    sum(is.na(airline_delays_raw$airline))
+  )
+)
+
+knitr::kable(
+  validation_summary,
+  col.names = c("Validation Check", "Result"),
+  align = c("l", "c"),
+  caption = "Validation of the Original PostgreSQL Records"
+)
+```
+
+## Planned Deliverables
+
+The completed assignment will include:
+
+- The original wide-format CSV file
+- Reproducible R and Quarto code
+- The populated and tidied long-format dataset
+- Overall airline delay percentages
+- City-level airline delay percentages
+- Tables and charts comparing the airlines
+- A written explanation of the results and discrepancy
+- A public GitHub repository
+- An RPubs report
+- A video presentation
+
+## Database Connection Cleanup
+
+The PostgreSQL connection is closed after the required records have been retrieved and validated.
+
+```{r}
+dbDisconnect(con)
+```
+
+## AI Use
+
+ChatGPT was used to help interpret the assignment requirements, organize the planned approach, improve the English writing, design the PostgreSQL table, and provide coding guidance. I prepared and imported the airline data, will run the code, review the results, and confirm the conclusions myself.
